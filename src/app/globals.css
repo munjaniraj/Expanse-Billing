@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-jakarta), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-sora), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex), ui-monospace, monospace;
+
+  /* Charcoal / black structure (RKT) */
+  --color-ink-50: #f6f6f6;
+  --color-ink-100: #ebebeb;
+  --color-ink-200: #d4d4d4;
+  --color-ink-300: #a3a3a3;
+  --color-ink-400: #737373;
+  --color-ink-500: #525252;
+  --color-ink-600: #404040;
+  --color-ink-700: #2b2b2b;
+  --color-ink-800: #1a1a1a;
+  --color-ink-900: #111111;
+  --color-ink-950: #000000;
+
+  /* Metallic gold brand accent (maps existing teal-* utilities) */
+  --color-teal-50: #fbf8ef;
+  --color-teal-100: #f5edd6;
+  --color-teal-200: #ead9a8;
+  --color-teal-500: #d4af37;
+  --color-teal-600: #c5a059;
+  --color-teal-700: #b8860b;
+  --color-teal-800: #8f6a0a;
+  --color-teal-900: #6b5008;
+
+  --color-gold-50: #fbf8ef;
+  --color-gold-100: #f5edd6;
+  --color-gold-200: #ead9a8;
+  --color-gold-400: #e0c56a;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #c5a059;
+  --color-gold-700: #b8860b;
+  --color-gold-800: #8f6a0a;
+
+  --color-sand-50: #faf9f6;
+  --color-sand-100: #f3f1ea;
+  --color-sand-200: #e7e3d6;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+    /* Bump root size so rem-based Tailwind text scales up app-wide */
+    font-size: 17.5px;
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      font-size: 18px;
+    }
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-ink-50 text-base text-ink-900 font-sans leading-relaxed;
+    background-image:
+      radial-gradient(1100px 480px at 0% -8%, rgba(212, 175, 55, 0.14), transparent 55%),
+      radial-gradient(900px 420px at 100% 0%, rgba(0, 0, 0, 0.06), transparent 50%),
+      linear-gradient(180deg, #faf9f6 0%, #f0eee8 100%);
+    background-attachment: fixed;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition;
+    @apply focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition;
+    @apply focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+    @apply bg-gold-600 text-ink-950 hover:bg-gold-500 shadow-sm shadow-gold-800/20;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition;
+    @apply focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+    @apply border border-ink-200 bg-white/90 text-ink-800 hover:bg-white;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition;
+    @apply focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+    @apply bg-rose-600 text-white hover:bg-rose-700;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition;
+    @apply focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+    @apply text-ink-600 hover:bg-ink-100/80;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-ink-200 bg-white/95 px-4 py-3 text-base text-ink-900;
+    @apply placeholder:text-ink-400 focus:border-gold-500 focus:ring-2 focus:ring-gold-100;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-ink-500;
+  }
+
+  .card {
+    @apply rounded-2xl border border-ink-200/80 bg-white/90 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-sm;
+  }
+
+  .page-title {
+    @apply font-display text-2xl font-semibold tracking-tight text-ink-950 sm:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-base text-ink-500;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
