@@ -39,12 +39,27 @@ export function getFirebaseConfigIssues() {
 function createFirebaseApp() {
   if (getApps().length) return getApp()
   if (getFirebaseConfigIssues().length) return null
-  return initializeApp(firebaseConfig)
+  try {
+    return initializeApp(firebaseConfig)
+  } catch {
+    return null
+  }
 }
 
 const app = createFirebaseApp()
 
-// Avoid crashing Next/Vercel prerender when Firebase env vars are missing.
-export const auth = app ? getAuth(app) : null
-export const db = app ? getFirestore(app) : null
+// Avoid crashing Next/Vercel prerender when Firebase env vars are missing/invalid.
+let auth = null
+let db = null
+if (app) {
+  try {
+    auth = getAuth(app)
+    db = getFirestore(app)
+  } catch {
+    auth = null
+    db = null
+  }
+}
+
+export { auth, db }
 export default app
