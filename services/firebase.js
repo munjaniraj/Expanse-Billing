@@ -2,13 +2,22 @@ import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
+function readEnv(name) {
+  // Prefer Next.js public vars; fall back to legacy Vite names if mapped in next.config.
+  return (
+    process.env[`NEXT_PUBLIC_${name}`] ||
+    process.env[`VITE_${name}`] ||
+    ''
+  )
+}
+
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: readEnv('FIREBASE_API_KEY'),
+  authDomain: readEnv('FIREBASE_AUTH_DOMAIN'),
+  projectId: readEnv('FIREBASE_PROJECT_ID'),
+  storageBucket: readEnv('FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: readEnv('FIREBASE_MESSAGING_SENDER_ID'),
+  appId: readEnv('FIREBASE_APP_ID'),
 }
 
 const requiredKeys = [
@@ -29,10 +38,13 @@ export function getFirebaseConfigIssues() {
 
 function createFirebaseApp() {
   if (getApps().length) return getApp()
+  if (getFirebaseConfigIssues().length) return null
   return initializeApp(firebaseConfig)
 }
 
 const app = createFirebaseApp()
-export const auth = getAuth(app)
-export const db = getFirestore(app)
+
+// Avoid crashing Next/Vercel prerender when Firebase env vars are missing.
+export const auth = app ? getAuth(app) : null
+export const db = app ? getFirestore(app) : null
 export default app

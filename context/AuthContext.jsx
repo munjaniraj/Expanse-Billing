@@ -18,6 +18,10 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState('')
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false)
+      return undefined
+    }
     const unsub = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
       setLoading(false)
@@ -77,6 +81,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = async () => {
+    if (!auth) return
     await signOut(auth)
   }
 
@@ -107,7 +112,7 @@ export function useAuth() {
 function validateFirebaseConfig() {
   const issues = getFirebaseConfigIssues()
   if (!issues.length) return ''
-  return 'Firebase config is incomplete. Check .env.local keys and restart the app.'
+  return 'Firebase config is incomplete. Set NEXT_PUBLIC_FIREBASE_* (or VITE_FIREBASE_*) env vars and redeploy.'
 }
 
 function mapAuthError(err) {
