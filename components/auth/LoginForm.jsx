@@ -33,64 +33,66 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-black">
-        <div className="absolute -left-24 top-0 h-96 w-96 rounded-full bg-gold-500/20 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-gold-700/15 blur-3xl" />
-        <div
-          className="absolute inset-0 opacity-[0.05]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(212,175,55,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,.35) 1px, transparent 1px)',
-            backgroundSize: '42px 42px',
-          }}
-        />
+    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      {/* Atmosphere */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-32 top-1/4 h-[28rem] w-[28rem] rounded-full bg-gold-600/25 blur-[120px]" />
+        <div className="absolute -right-24 bottom-0 h-[26rem] w-[26rem] rounded-full bg-gold-700/20 blur-[110px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.55)_70%)]" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10 lg:flex-row lg:items-center lg:gap-16 lg:px-8">
-        <div className="mb-10 max-w-xl text-white lg:mb-0 lg:flex-1">
-          <div className="mb-6 inline-flex rounded-2xl bg-black/60 p-3 ring-1 ring-gold-500/40 backdrop-blur">
-            <BrandLogo size="lg" textClassName="text-white" />
+      <div className="relative mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14 lg:py-0">
+        {/* Left — brand */}
+        <section className="animate-[fadeUp_0.7s_ease-out_both] max-w-xl">
+          <div className="mb-8 inline-flex rounded-2xl bg-black/70 p-2.5 ring-1 ring-gold-500/35 backdrop-blur-sm">
+            <BrandLogo size="md" textClassName="text-white" />
           </div>
-          <div className="mb-6 overflow-hidden rounded-2xl border border-gold-500/30 bg-black shadow-2xl shadow-gold-900/20">
+
+          <div className="mb-8 max-w-md animate-[fadeUp_0.85s_ease-out_0.08s_both]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/brand/logo.jpeg"
               alt="RKT Fabrics Manufactured"
-              className="h-auto w-full max-w-md object-contain"
+              className="h-auto w-full object-contain drop-shadow-[0_20px_50px_rgba(197,160,89,0.18)]"
             />
           </div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+
+          <h1 className="font-display text-[2rem] font-semibold leading-[1.15] tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
             Finance control for premium fabric manufacturing.
           </h1>
-          <p className="mt-4 text-lg leading-relaxed text-ink-300 sm:text-xl">
-            Costing, stock, labour and FY reports — branded for RKT Fabrics Manufactured.
+          <p className="mt-4 max-w-md text-base leading-relaxed text-ink-300 sm:text-lg">
+            Costing, stock, labour and FY reports — branded for RKT Fabrics
           </p>
-        </div>
+        </section>
 
-        <div className="w-full max-w-md lg:flex-none">
-          <div className="rounded-3xl border border-gold-500/25 bg-white p-6 shadow-2xl shadow-black/40 sm:p-8">
-            <h2 className="font-display text-3xl font-semibold text-ink-950">Sign in</h2>
-            <p className="mt-1 text-base text-ink-500">RKT Fabrics · secure staff access</p>
+        {/* Right — sign-in card */}
+        <section className="animate-[fadeUp_0.75s_ease-out_0.12s_both] w-full justify-self-end lg:max-w-[420px]">
+          <div className="rounded-2xl bg-white p-7 text-ink-950 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:p-8">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-ink-950">
+              Sign in
+            </h2>
+            <p className="mt-1.5 text-sm text-ink-500">RKT Fabrics · secure staff access</p>
 
             {authError && (
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
+              <div className="mt-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{authError}</span>
               </div>
             )}
 
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
               <div>
-                <label className="label" htmlFor="email">Email</label>
+                <label className="label" htmlFor="email">
+                  Email
+                </label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
                   <input
                     id="email"
                     type="email"
                     autoComplete="email"
                     required
-                    className="input-field pl-10"
+                    className="input-field pl-11"
                     placeholder="you@rktfabrics.com"
                     value={email}
                     onChange={(e) => {
@@ -103,20 +105,25 @@ export default function LoginForm() {
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label className="label mb-0" htmlFor="password">Password</label>
-                  <Link href="/forgot-password" className="text-xs font-semibold text-gold-700 hover:text-gold-800">
+                  <label className="label mb-0" htmlFor="password">
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-gold-700 transition hover:text-gold-800"
+                  >
                     Forgot password?
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     required
                     minLength={6}
-                    className="input-field pl-10 pr-11"
+                    className="input-field pl-11 pr-11"
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => {
@@ -126,7 +133,8 @@ export default function LoginForm() {
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-600"
                     onClick={() => setShowPassword((v) => !v)}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -134,7 +142,11 @@ export default function LoginForm() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-primary w-full" disabled={submitting}>
+              <button
+                type="submit"
+                className="btn-primary mt-1 w-full py-3.5 text-[15px] shadow-md shadow-gold-800/25"
+                disabled={submitting}
+              >
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" /> Signing in…
@@ -145,14 +157,14 @@ export default function LoginForm() {
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-ink-500">
+            <p className="mt-7 text-center text-sm text-ink-500">
               No account yet?{' '}
-              <Link href="/signup" className="font-semibold text-gold-700 hover:text-gold-800">
+              <Link href="/signup" className="font-semibold text-gold-700 transition hover:text-gold-800">
                 Create one
               </Link>
             </p>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   )
