@@ -22,7 +22,7 @@ Textile Business Income, Expense & Financial Management System.
 npm install
 ```
 
-Copy env keys into `.env.local`:
+Copy env keys into `.env.local` (or `.env`):
 
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY=...
@@ -32,6 +32,10 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
+
+Legacy `VITE_FIREBASE_*` names still work via `next.config.mjs`.
+
+On Vercel → Project → Settings → Environment Variables, add the same keys for Production (and Preview). Then redeploy.
 
 Ensure Email/Password is enabled in Firebase Authentication.
 
