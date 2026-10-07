@@ -39,6 +39,17 @@ On Vercel → Project → Settings → Environment Variables, add the same keys 
 
 Ensure Email/Password is enabled in Firebase Authentication.
 
+## Demo login
+
+Use these credentials on `/login` (Email/Password auth in Firebase project `expenses-68fab`):
+
+| Field | Value |
+|-------|--------|
+| **Email** | `demo@rktfabrics.com` |
+| **Password** | `RktDemo@123` |
+
+> For local / demo use. Change or delete this user in Firebase Console before production, and avoid committing real staff passwords.
+
 ## Scripts
 
 ```bash
