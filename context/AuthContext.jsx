@@ -7,6 +7,9 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from 'firebase/auth'
 import { auth, getFirebaseConfigIssues } from '@/services/firebase'
 
@@ -85,6 +88,33 @@ export function AuthProvider({ children }) {
     await signOut(auth)
   }
 
+  const changePassword = async (currentPassword, newPassword) => {
+    setAuthError('')
+    const configError = validateFirebaseConfig()
+    if (configError) {
+      setAuthError(configError)
+      return { ok: false, message: configError }
+    }
+    if (!auth?.currentUser?.email) {
+      const message = 'You must be signed in to change your password.'
+      setAuthError(message)
+      return { ok: false, message }
+    }
+    try {
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email,
+        currentPassword,
+      )
+      await reauthenticateWithCredential(auth.currentUser, credential)
+      await updatePassword(auth.currentUser, newPassword)
+      return { ok: true }
+    } catch (err) {
+      const message = mapAuthError(err)
+      setAuthError(message)
+      return { ok: false, message }
+    }
+  }
+
   const value = useMemo(
     () => ({
       user,
@@ -94,6 +124,7 @@ export function AuthProvider({ children }) {
       login,
       signup,
       resetPassword,
+      changePassword,
       logout,
       isAuthenticated: Boolean(user),
     }),
@@ -133,6 +164,8 @@ function mapAuthError(err) {
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
       return 'Invalid email or password. Please try again.'
+    case 'auth/requires-recent-login':
+      return 'Please sign in again, then try changing your password.'
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait a moment and try again.'
     case 'auth/network-request-failed':
