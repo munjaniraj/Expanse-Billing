@@ -9,6 +9,7 @@ const TYPES = [
   { value: 'expense', label: 'Expense' },
   { value: 'labour', label: 'Labour' },
   { value: 'production', label: 'Production' },
+  { value: 'bill', label: 'Bill' }, // used on Bills page
 ]
 
 const emptyForm = { name: '', type: 'income', code: '', status: 'active' }
@@ -48,7 +49,7 @@ export default function CategoryFormModal({ open, onClose, onSubmit, initial, sa
       open={open}
       onClose={onClose}
       title={initial ? 'Edit Category' : 'Add Category'}
-      subtitle="Reference data for income, expense, labour & production"
+      subtitle="Reference data for income, expense, labour, production & bills"
       footer={
         <>
           <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
@@ -83,7 +84,11 @@ export default function CategoryFormModal({ open, onClose, onSubmit, initial, sa
           <div>
             <label className="label" htmlFor="cat-type">Type</label>
             <select id="cat-type" className="input-field" value={form.type} onChange={handleChange('type')}>
-              {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>

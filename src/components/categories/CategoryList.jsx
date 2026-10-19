@@ -30,6 +30,7 @@ const TYPE_FILTERS = [
   { value: 'expense', label: 'Expense' },
   { value: 'labour', label: 'Labour' },
   { value: 'production', label: 'Production' },
+  { value: 'bill', label: 'Bill' },
 ]
 
 export default function CategoryList() {

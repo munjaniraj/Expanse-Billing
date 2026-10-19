@@ -25,6 +25,7 @@ const TYPE_FILTERS = [
   { value: 'expense', label: 'Expense' },
   { value: 'labour', label: 'Labour' },
   { value: 'production', label: 'Production' },
+  { value: 'bill', label: 'Bill' },
 ]
 
 export default function CategoryList() {
@@ -70,6 +71,7 @@ export default function CategoryList() {
     expense: categories.filter((c) => c.type === 'expense').length,
     labour: categories.filter((c) => c.type === 'labour').length,
     production: categories.filter((c) => c.type === 'production').length,
+    bill: categories.filter((c) => c.type === 'bill').length,
   }), [categories])
 
   const handleSave = async (form) => {
@@ -158,13 +160,14 @@ export default function CategoryList() {
   return (
     <div className="space-y-5">
       <StatGrid
-        columns={5}
+        columns={3}
         items={[
           { label: 'Total', value: counts.total },
           { label: 'Income', value: counts.income, colorClass: 'text-emerald-700' },
           { label: 'Expense', value: counts.expense, colorClass: 'text-rose-600' },
           { label: 'Labour', value: counts.labour, colorClass: 'text-amber-600' },
           { label: 'Production', value: counts.production, colorClass: 'text-teal-700' },
+          { label: 'Bill', value: counts.bill, colorClass: 'text-sky-700' },
         ]}
       />
 
@@ -235,7 +238,7 @@ export default function CategoryList() {
         {!loading && categories.length === 0 && !error && (
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-dashed border-teal-200 bg-teal-50/60 px-4 py-3 text-sm text-teal-900">
             <Tags className="mt-0.5 h-5 w-5 shrink-0" />
-            <p>Tip: Start with production categories, then income and expense so the dashboard and Excel matrix populate correctly.</p>
+            <p>Tip: Add production, income, expense and bill categories (Electricity, Gas, etc.) so dashboard, bills and Excel matrix populate correctly.</p>
           </div>
         )}
       </SectionCard>

@@ -36,6 +36,10 @@ export default function DashboardView() {
     () => query(collection(db, 'labour_entries'), where('financialYear', '==', financialYear)),
     [financialYear],
   )
+  const billsQuery = useMemo(
+    () => query(collection(db, 'bills'), where('financialYear', '==', financialYear)),
+    [financialYear],
+  )
   const stockQuery = useMemo(
     () => query(collection(db, 'production_stock'), where('financialYear', '==', financialYear)),
     [financialYear],
@@ -43,9 +47,10 @@ export default function DashboardView() {
 
   const { data: transactions, loading: txLoading, error: txError } = useFirestoreQuery(txQuery)
   const { data: labour, loading: labourLoading } = useFirestoreQuery(labourQuery)
+  const { data: bills, loading: billsLoading } = useFirestoreQuery(billsQuery)
   const { data: stock, loading: stockLoading } = useFirestoreQuery(stockQuery)
 
-  const loading = txLoading || labourLoading || stockLoading
+  const loading = txLoading || labourLoading || billsLoading || stockLoading
 
   const metrics = useMemo(() => {
     const income = transactions
@@ -55,6 +60,7 @@ export default function DashboardView() {
       .filter((t) => t.type === 'expense')
       .reduce((s, t) => s + (Number(t.totalAmount) || 0), 0)
     const labourCost = labour.reduce((s, l) => s + (Number(l.netPayment) || 0), 0)
+    const billCost = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0)
     const netStockValue = stock.reduce(
       (s, r) => s + (Number(r.netStock) || 0) * (Number(r.unitCost) || 0),
       0,
@@ -63,11 +69,12 @@ export default function DashboardView() {
       income,
       expense,
       labourCost,
-      profit: income - expense - labourCost,
+      billCost,
+      profit: income - expense - labourCost - billCost,
       netStockValue,
-      totalExpense: expense + labourCost,
+      totalExpense: expense + labourCost + billCost,
     }
-  }, [transactions, labour, stock])
+  }, [transactions, labour, bills, stock])
 
   const incomeRows = useMemo(
     () =>
@@ -86,6 +93,8 @@ export default function DashboardView() {
         date: t.date,
         source: 'Expense',
         name: t.partyName || '—',
+        department: t.categoryName || '—',
+        detail: t.invoiceNumber || '—',
         categoryName: t.categoryName || '—',
         totalAmount: t.totalAmount,
       }))
@@ -94,11 +103,23 @@ export default function DashboardView() {
       date: l.date,
       source: 'Labour',
       name: l.labourName || '—',
+      department: l.department || '—',
+      detail: [l.labourCode, l.workType].filter(Boolean).join(' · ') || '—',
       categoryName: l.department || '—',
       totalAmount: l.netPayment,
     }))
-    return [...fromTx, ...fromLabour].sort(sortByDateDesc)
-  }, [transactions, labour])
+    const fromBills = bills.map((b) => ({
+      id: `bill-${b.id}`,
+      date: b.date,
+      source: 'Bill',
+      name: b.vendorName || '—',
+      department: b.categoryName || '—',
+      detail: b.billNumber || b.categoryCode || '—',
+      categoryName: b.categoryName || '—',
+      totalAmount: b.amount,
+    }))
+    return [...fromTx, ...fromLabour, ...fromBills].sort(sortByDateDesc)
+  }, [transactions, labour, bills])
 
   const profitRows = useMemo(() => {
     const income = transactions
@@ -108,6 +129,7 @@ export default function DashboardView() {
         date: t.date,
         type: 'income',
         name: t.partyName || '—',
+        department: t.categoryName || '—',
         categoryName: t.categoryName || '—',
         signedAmount: Number(t.totalAmount) || 0,
       }))
@@ -118,6 +140,7 @@ export default function DashboardView() {
         date: t.date,
         type: 'expense',
         name: t.partyName || '—',
+        department: t.categoryName || '—',
         categoryName: t.categoryName || '—',
         signedAmount: -(Number(t.totalAmount) || 0),
       }))
@@ -126,20 +149,36 @@ export default function DashboardView() {
       date: l.date,
       type: 'labour',
       name: l.labourName || '—',
+      department: l.department || '—',
       categoryName: l.department || '—',
       signedAmount: -(Number(l.netPayment) || 0),
     }))
-    return [...income, ...expense, ...labourRows].sort(sortByDateDesc)
-  }, [transactions, labour])
+    const billRows = bills.map((b) => ({
+      id: `bill-${b.id}`,
+      date: b.date,
+      type: 'bill',
+      name: b.vendorName || '—',
+      department: b.categoryName || '—',
+      categoryName: b.categoryName || '—',
+      signedAmount: -(Number(b.amount) || 0),
+    }))
+    return [...income, ...expense, ...labourRows, ...billRows].sort(sortByDateDesc)
+  }, [transactions, labour, bills])
 
   const incomeByCat = useMemo(
     () => aggregateByCategory(transactions.filter((t) => t.type === 'income'), 'totalAmount'),
     [transactions],
   )
-  const expenseByCat = useMemo(
-    () => aggregateByCategory(transactions.filter((t) => t.type === 'expense'), 'totalAmount'),
-    [transactions],
-  )
+  const expenseByCat = useMemo(() => {
+    const fromTx = aggregateByCategory(
+      transactions.filter((t) => t.type === 'expense'),
+      'totalAmount',
+    )
+    const fromLabour = aggregateByField(labour, 'department', 'netPayment', 'Labour')
+    const fromBills = aggregateByField(bills, 'categoryName', 'amount', 'Bill')
+    return mergeAmountLists([...fromTx, ...fromLabour, ...fromBills])
+  }, [transactions, labour, bills])
+
   const profitByCat = useMemo(() => {
     const map = new Map()
     incomeByCat.forEach((i) => map.set(i.name, (map.get(i.name) || 0) + i.amount))
@@ -176,14 +215,19 @@ export default function DashboardView() {
       ),
     [transactions],
   )
-  const payables = useMemo(
-    () =>
-      aggregateByCategory(
-        transactions.filter((t) => t.type === 'expense' && (Number(t.pendingAmount) || 0) > 0),
-        'pendingAmount',
-      ),
-    [transactions],
-  )
+  const payables = useMemo(() => {
+    const fromTx = aggregateByCategory(
+      transactions.filter((t) => t.type === 'expense' && (Number(t.pendingAmount) || 0) > 0),
+      'pendingAmount',
+    )
+    const fromBills = aggregateByField(
+      bills.filter((b) => (Number(b.pendingAmount) || 0) > 0),
+      'categoryName',
+      'pendingAmount',
+      'Bill',
+    )
+    return mergeAmountLists([...fromTx, ...fromBills])
+  }, [transactions, bills])
 
   const drilldownPayload = useMemo(() => {
     if (!drilldown) return null
@@ -199,7 +243,7 @@ export default function DashboardView() {
       return {
         kind: 'expense',
         rows: expenseRows,
-        totalLabel: 'Total Expense (incl. labour)',
+        totalLabel: 'Total Expense (expense + labour + bills)',
         totalValue: metrics.totalExpense,
       }
     }
@@ -254,11 +298,11 @@ export default function DashboardView() {
         <MetricCard
           title="Total Expense"
           value={formatINRCompact(metrics.totalExpense)}
-          subtitle={`Incl. labour ${formatINRCompact(metrics.labourCost)}`}
+          subtitle={`Labour ${formatINRCompact(metrics.labourCost)} · Bills ${formatINRCompact(metrics.billCost)}`}
           icon={TrendingDown}
           tone="rose"
           onClick={() => setDrilldown('expense')}
-          hint="Click to view all expenses"
+          hint="Click to view expense, labour & bills"
         />
         <MetricCard
           title="Net Profit / Loss"
@@ -318,6 +362,26 @@ function aggregateByCategory(rows, field) {
   rows.forEach((row) => {
     const name = row.categoryName || 'Uncategorised'
     map.set(name, (map.get(name) || 0) + (Number(row[field]) || 0))
+  })
+  return [...map.entries()]
+    .map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount)
+}
+
+function aggregateByField(rows, nameField, amountField, prefix = '') {
+  const map = new Map()
+  rows.forEach((row) => {
+    const raw = row[nameField] || 'Uncategorised'
+    const name = prefix ? `${prefix}: ${raw}` : raw
+    map.set(name, (map.get(name) || 0) + (Number(row[amountField]) || 0))
+  })
+  return [...map.entries()].map(([name, amount]) => ({ name, amount }))
+}
+
+function mergeAmountLists(lists) {
+  const map = new Map()
+  lists.forEach(({ name, amount }) => {
+    map.set(name, (map.get(name) || 0) + (Number(amount) || 0))
   })
   return [...map.entries()]
     .map(([name, amount]) => ({ name, amount }))

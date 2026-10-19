@@ -13,11 +13,15 @@ const titles = {
   },
   '/categories': {
     title: 'Category Master',
-    subtitle: 'Manage income, expense, labour and production categories',
+    subtitle: 'Manage income, expense, labour, production and bill categories',
   },
   '/transactions': {
     title: 'Transactions',
     subtitle: 'Track sales, purchases and payment status',
+  },
+  '/bills': {
+    title: 'Bills',
+    subtitle: 'Utility & vendor bills by bill category',
   },
   '/labour': {
     title: 'Labour Entries',

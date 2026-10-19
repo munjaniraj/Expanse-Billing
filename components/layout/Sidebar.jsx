@@ -10,6 +10,7 @@ import {
   Receipt,
   Users,
   Wallet,
+  FileText,
   X,
 } from 'lucide-react'
 import BrandLogo from '@/components/brand/BrandLogo'
@@ -18,6 +19,7 @@ const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { href: '/categories', label: 'Categories', icon: Tags },
   { href: '/transactions', label: 'Transactions', icon: Receipt },
+  { href: '/bills', label: 'Bills', icon: FileText },
   { href: '/labour', label: 'Labour', icon: Users, end: true },
   { href: '/labour/advances', label: 'Labour Advances', icon: Wallet },
   { href: '/production', label: 'Production & Stock', icon: Factory },

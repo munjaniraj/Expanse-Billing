@@ -66,6 +66,7 @@ npm start
 | `/` | Dashboard |
 | `/categories` | Category Master |
 | `/transactions` | Income / Expense |
+| `/bills` | Utility & vendor bills by bill category |
 | `/labour` | Labour entries (by Labour ID, advance deduction) |
 | `/labour/advances` | Labour workers, give advance, advance ledger |
 | `/production` | Stock + movements |

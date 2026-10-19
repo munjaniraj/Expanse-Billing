@@ -7,6 +7,7 @@ const TYPES = [
   { value: 'expense', label: 'Expense' },
   { value: 'labour', label: 'Labour' },
   { value: 'production', label: 'Production' },
+  { value: 'bill', label: 'Bill' },
 ]
 
 const emptyForm = {
@@ -111,11 +112,11 @@ export default function CategoryFormModal({ open, onClose, onSubmit, initial, sa
               value={form.type}
               onChange={handleChange('type')}
             >
-              {TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="labour">Labour</option>
+              <option value="production">Production</option>
+              <option value="bill">Bill</option>
             </select>
           </div>
           <div>
