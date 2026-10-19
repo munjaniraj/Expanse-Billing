@@ -1,8 +1,14 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { Minus, Plus, Pencil, Trash2 } from 'lucide-react'
 import { formatINR } from '@/utils/currencyFormatter'
+import { filterRows } from '@/utils/filterRows'
+import { usePagination } from '@/hooks/usePagination'
 import Table from '@/components/common/Table'
+import SearchFilterBar from '@/components/common/SearchFilterBar'
+import Pagination from '@/components/common/Pagination'
+import SectionCard from '@/components/common/SectionCard'
 
 export default function StockBalanceTable({
   rows = [],
@@ -13,6 +19,33 @@ export default function StockBalanceTable({
   onEdit,
   onDelete,
 }) {
+  const [search, setSearch] = useState('')
+  const [stockFilter, setStockFilter] = useState('all')
+
+  const filtered = useMemo(
+    () =>
+      filterRows(rows, {
+        query: search,
+        fields: ['categoryName', 'unit'],
+        predicates: [
+          (row) => {
+            const net = Number(row.netStock) || 0
+            if (stockFilter === 'in_stock') return net > 0
+            if (stockFilter === 'zero') return net <= 0
+            return true
+          },
+        ],
+      }),
+    [rows, search, stockFilter],
+  )
+
+  const {
+    page, setPage, pageSize, setPageSize, pageData, total, totalPages, from, to,
+  } = usePagination(filtered, {
+    initialPageSize: 10,
+    resetKey: `${search}|${stockFilter}`,
+  })
+
   const columns = [
     {
       key: 'categoryName',
@@ -91,29 +124,57 @@ export default function StockBalanceTable({
   ]
 
   return (
-    <div className="card p-4 sm:p-5">
-      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 className="font-display text-sm font-bold text-ink-950">Stock Balance</h3>
-          <p className="text-xs text-ink-500">
-            Click a row to reduce, or use Add / Reduce. Net = Opening + Produced − Sold − Wastage
-          </p>
-        </div>
-      </div>
-      <Table
-        columns={columns}
-        data={rows}
-        selectedRowId={selectedRowId}
-        onRowClick={(row) => {
-          onRowSelect?.(row)
-          if (Number(row.netStock) > 0) {
-            onReduce?.(row)
-          } else {
-            onAdd?.(row)
-          }
-        }}
-        emptyMessage="No stock balances for this FY yet. Use Add Stock to create the first balance."
+    <SectionCard
+      title="Stock Balance"
+      subtitle="Click a row to reduce, or use Add / Reduce. Net = Opening + Produced − Sold − Wastage"
+    >
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search category, unit…"
+        filters={[
+          {
+            id: 'stock',
+            value: stockFilter,
+            onChange: setStockFilter,
+            options: [
+              { value: 'all', label: 'All stock' },
+              { value: 'in_stock', label: 'In stock' },
+              { value: 'zero', label: 'Zero / empty' },
+            ],
+          },
+        ]}
       />
-    </div>
+      <div className="mt-4">
+        <Table
+          columns={columns}
+          data={pageData}
+          selectedRowId={selectedRowId}
+          onRowClick={(row) => {
+            onRowSelect?.(row)
+            if (Number(row.netStock) > 0) {
+              onReduce?.(row)
+            } else {
+              onAdd?.(row)
+            }
+          }}
+          emptyMessage={
+            rows.length
+              ? 'No stock rows match your search.'
+              : 'No stock balances for this FY yet. Use Add Stock to create the first balance.'
+          }
+        />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+          from={from}
+          to={to}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      </div>
+    </SectionCard>
   )
 }

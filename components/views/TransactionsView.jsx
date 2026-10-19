@@ -18,10 +18,16 @@ import { db } from '@/services/firebase'
 import { useFinancialYear } from '@/context/FinancialYearContext'
 import { useToast } from '@/context/ToastContext'
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery'
+import { usePagination } from '@/hooks/usePagination'
 import { formatINR } from '@/utils/currencyFormatter'
 import { sortByDateDesc } from '@/utils/sortByDate'
+import { filterRows } from '@/utils/filterRows'
 import Badge from '@/components/common/Badge'
 import Table from '@/components/common/Table'
+import SearchFilterBar from '@/components/common/SearchFilterBar'
+import Pagination from '@/components/common/Pagination'
+import PageHeader from '@/components/common/PageHeader'
+import SectionCard from '@/components/common/SectionCard'
 import Modal from '@/components/common/Modal'
 import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
 
@@ -87,6 +93,8 @@ export default function TransactionsView() {
   const { data: categories } = useFirestoreQuery(catsQuery)
 
   const [typeFilter, setTypeFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
@@ -109,10 +117,25 @@ export default function TransactionsView() {
     router.replace(qs ? `/transactions?${qs}` : '/transactions', { scroll: false })
   }
 
-  const filtered = useMemo(() => {
-    if (typeFilter === 'all') return transactions
-    return transactions.filter((t) => t.type === typeFilter)
-  }, [transactions, typeFilter])
+  const filtered = useMemo(
+    () =>
+      filterRows(transactions, {
+        query: search,
+        fields: ['partyName', 'categoryName', 'invoiceNumber', 'notes', 'paymentMethod'],
+        predicates: [
+          (t) => typeFilter === 'all' || t.type === typeFilter,
+          (t) => statusFilter === 'all' || t.paymentStatus === statusFilter,
+        ],
+      }),
+    [transactions, search, typeFilter, statusFilter],
+  )
+
+  const {
+    page, setPage, pageSize, setPageSize, pageData, total, totalPages, from, to,
+  } = usePagination(filtered, {
+    initialPageSize: 10,
+    resetKey: `${search}|${typeFilter}|${statusFilter}`,
+  })
 
   const filteredCats = categories.filter(
     (c) => c.status === 'active' && (c.type === form.type || c.type === 'production'),
@@ -291,32 +314,33 @@ export default function TransactionsView() {
     typeFilter === 'income' ? 'income' : typeFilter === 'expense' ? 'expense' : 'transaction'
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <p className="text-sm text-ink-500">Income & expense vouchers for the selected FY.</p>
-          <div className="flex flex-wrap gap-1.5">
-            {TYPE_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setFilter(tab.value)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  typeFilter === tab.value
-                    ? 'bg-teal-700 text-white'
-                    : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+    <div className="space-y-5">
+      <PageHeader
+        description="Income & expense vouchers for the selected financial year."
+        actions={
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Add Transaction
+          </button>
+        }
+      >
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {TYPE_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setFilter(tab.value)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                typeFilter === tab.value
+                  ? 'bg-teal-700 text-white shadow-sm'
+                  : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <button type="button" className="btn-primary" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Add Transaction
-        </button>
-      </div>
+      </PageHeader>
 
       {error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -328,17 +352,51 @@ export default function TransactionsView() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-16 text-ink-500">
+        <div className="card flex justify-center py-16 text-ink-500">
           <Loader2 className="h-5 w-5 animate-spin text-teal-700" />
         </div>
       ) : (
-        <div className="card p-4 sm:p-5">
-          <Table
-            columns={columns}
-            data={filtered}
-            emptyMessage={`No ${filterLabel} records yet.`}
+        <SectionCard title="Transactions" subtitle={`Showing ${filterLabel} records · ${financialYear}`}>
+          <SearchFilterBar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search party, category, invoice…"
+            filters={[
+              {
+                id: 'paymentStatus',
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: [
+                  { value: 'all', label: 'All status' },
+                  { value: 'Paid', label: 'Paid' },
+                  { value: 'Partially Paid', label: 'Partially Paid' },
+                  { value: 'Pending', label: 'Pending' },
+                ],
+              },
+            ]}
           />
-        </div>
+          <div className="mt-4">
+            <Table
+              columns={columns}
+              data={pageData}
+              emptyMessage={
+                transactions.length
+                  ? `No ${filterLabel} records match your search.`
+                  : `No ${filterLabel} records yet.`
+              }
+            />
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              from={from}
+              to={to}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        </SectionCard>
       )}
 
       <Modal

@@ -66,7 +66,8 @@ npm start
 | `/` | Dashboard |
 | `/categories` | Category Master |
 | `/transactions` | Income / Expense |
-| `/labour` | Labour entries |
+| `/labour` | Labour entries (by Labour ID, advance deduction) |
+| `/labour/advances` | Labour workers, give advance, advance ledger |
 | `/production` | Stock + movements |
 | `/excel-sheet` | 12-month matrix |
 

@@ -18,6 +18,7 @@ import StockMovementModal from '@/components/production/StockMovementModal'
 import StockEditModal from '@/components/production/StockEditModal'
 import MovementHistoryLog from '@/components/production/MovementHistoryLog'
 import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
+import PageHeader from '@/components/common/PageHeader'
 
 export default function ProductionView() {
   const toast = useToast()
@@ -141,31 +142,31 @@ export default function ProductionView() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-ink-500">
-          Add / reduce stock, edit unit cost & opening, or delete a balance row.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => openModal('ADD', null)}
-            disabled={!categories.length}
-          >
-            <Plus className="h-4 w-4" />
-            Add Stock
-          </button>
-          <button
-            type="button"
-            className="btn-danger"
-            onClick={() => openModal('REDUCE', selectedStock)}
-            disabled={!categories.length && !stock.length}
-          >
-            <Minus className="h-4 w-4" />
-            Reduce Stock
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        description="Add / reduce stock, edit unit cost & opening, or delete a balance row."
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => openModal('ADD', null)}
+              disabled={!categories.length}
+            >
+              <Plus className="h-4 w-4" />
+              Add Stock
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={() => openModal('REDUCE', selectedStock)}
+              disabled={!categories.length && !stock.length}
+            >
+              <Minus className="h-4 w-4" />
+              Reduce Stock
+            </button>
+          </>
+        }
+      />
 
       {(error || actionError) && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

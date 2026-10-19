@@ -4,12 +4,18 @@ import { useMemo, useState } from 'react'
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy,
 } from 'firebase/firestore'
-import { Plus, Pencil, Trash2, Search, Filter, Tags, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, Loader2 } from 'lucide-react'
 import { db } from '@/services/firebase'
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery'
+import { usePagination } from '@/hooks/usePagination'
 import { useToast } from '@/context/ToastContext'
+import { filterRows } from '@/utils/filterRows'
 import Badge from '@/components/common/Badge'
 import Table from '@/components/common/Table'
+import SearchFilterBar from '@/components/common/SearchFilterBar'
+import Pagination from '@/components/common/Pagination'
+import StatGrid from '@/components/common/StatGrid'
+import SectionCard from '@/components/common/SectionCard'
 import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
 import CategoryFormModal from './CategoryFormModal'
 
@@ -38,15 +44,25 @@ export default function CategoryList() {
   const [saving, setSaving] = useState(false)
   const [actionError, setActionError] = useState('')
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return categories.filter((c) => {
-      const matchSearch = !q || c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q)
-      const matchType = typeFilter === 'all' || c.type === typeFilter
-      const matchStatus = statusFilter === 'all' || c.status === statusFilter
-      return matchSearch && matchType && matchStatus
-    })
-  }, [categories, search, typeFilter, statusFilter])
+  const filtered = useMemo(
+    () =>
+      filterRows(categories, {
+        query: search,
+        fields: ['name', 'code'],
+        predicates: [
+          (c) => typeFilter === 'all' || c.type === typeFilter,
+          (c) => statusFilter === 'all' || c.status === statusFilter,
+        ],
+      }),
+    [categories, search, typeFilter, statusFilter],
+  )
+
+  const {
+    page, setPage, pageSize, setPageSize, pageData, total, totalPages, from, to,
+  } = usePagination(filtered, {
+    initialPageSize: 10,
+    resetKey: `${search}|${typeFilter}|${statusFilter}`,
+  })
 
   const counts = useMemo(() => ({
     total: categories.length,
@@ -141,46 +157,48 @@ export default function CategoryList() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {[
-          ['Total', counts.total, 'text-ink-950'],
-          ['Income', counts.income, 'text-emerald-700'],
-          ['Expense', counts.expense, 'text-rose-600'],
-          ['Labour', counts.labour, 'text-amber-600'],
-          ['Production', counts.production, 'text-teal-700'],
-        ].map(([label, value, color]) => (
-          <div key={label} className="card px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">{label}</p>
-            <p className={`mt-1 font-mono text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <StatGrid
+        columns={5}
+        items={[
+          { label: 'Total', value: counts.total },
+          { label: 'Income', value: counts.income, colorClass: 'text-emerald-700' },
+          { label: 'Expense', value: counts.expense, colorClass: 'text-rose-600' },
+          { label: 'Labour', value: counts.labour, colorClass: 'text-amber-600' },
+          { label: 'Production', value: counts.production, colorClass: 'text-teal-700' },
+        ]}
+      />
 
-      <div className="card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-              <input className="input-field pl-10" placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1 sm:w-40">
-                <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                <select className="input-field pl-9" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                  {TYPE_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <select className="input-field w-32" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-          <button type="button" className="btn-primary shrink-0" onClick={() => { setEditing(null); setModalOpen(true) }}>
-            <Plus className="h-4 w-4" /> Add Category
-          </button>
-        </div>
+      <SectionCard title="Category Master" subtitle="Search, filter and manage income, expense, labour and production categories">
+        <SearchFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by name or code…"
+          filters={[
+            {
+              id: 'type',
+              value: typeFilter,
+              onChange: setTypeFilter,
+              options: TYPE_FILTERS,
+            },
+            {
+              id: 'status',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              showIcon: false,
+              className: 'w-32 flex-none',
+              options: [
+                { value: 'all', label: 'All status' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ],
+            },
+          ]}
+          actions={
+            <button type="button" className="btn-primary shrink-0" onClick={() => { setEditing(null); setModalOpen(true) }}>
+              <Plus className="h-4 w-4" /> Add Category
+            </button>
+          }
+        />
 
         {(error || actionError) && (
           <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -194,7 +212,23 @@ export default function CategoryList() {
               <Loader2 className="h-5 w-5 animate-spin text-teal-700" /> Loading categories…
             </div>
           ) : (
-            <Table columns={columns} data={filtered} emptyMessage="No categories yet." />
+            <>
+              <Table
+                columns={columns}
+                data={pageData}
+                emptyMessage={categories.length ? 'No categories match your search.' : 'No categories yet.'}
+              />
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                totalPages={totalPages}
+                from={from}
+                to={to}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </>
           )}
         </div>
 
@@ -204,7 +238,7 @@ export default function CategoryList() {
             <p>Tip: Start with production categories, then income and expense so the dashboard and Excel matrix populate correctly.</p>
           </div>
         )}
-      </div>
+      </SectionCard>
 
       <CategoryFormModal
         open={modalOpen}

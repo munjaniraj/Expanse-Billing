@@ -23,6 +23,10 @@ const titles = {
     title: 'Labour Entries',
     subtitle: 'Piece rate, daily wage and contract payments',
   },
+  '/labour/advances': {
+    title: 'Labour Advances',
+    subtitle: 'Labour master, give advances by ID, and track deductions (−)',
+  },
   '/production': {
     title: 'Production vs Sales',
     subtitle: 'Stock balances, movements and audit trail',
@@ -40,9 +44,9 @@ export default function AppShell({ children }) {
 
   return (
     <ProtectedRoute>
-      <div className="flex min-h-screen">
+      <div className="min-h-screen">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-screen min-w-0 flex-col lg:pl-72">
           <Topbar
             onMenuClick={() => setSidebarOpen(true)}
             title={meta.title}

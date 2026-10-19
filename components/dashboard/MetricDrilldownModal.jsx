@@ -1,15 +1,27 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import Modal from '@/components/common/Modal'
 import Table from '@/components/common/Table'
 import Badge from '@/components/common/Badge'
+import SearchFilterBar from '@/components/common/SearchFilterBar'
+import Pagination from '@/components/common/Pagination'
 import { formatINR } from '@/utils/currencyFormatter'
+import { filterRows } from '@/utils/filterRows'
+import { usePagination } from '@/hooks/usePagination'
 
 function formatDate(value) {
   const d = value?.toDate?.() || (value ? new Date(value) : null)
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-IN') : '—'
+}
+
+const SEARCH_FIELDS = {
+  income: ['categoryName', 'partyName', 'paymentStatus'],
+  expense: ['source', 'name', 'categoryName'],
+  profit: ['type', 'name', 'categoryName'],
+  stock: ['categoryName', 'unit'],
 }
 
 const CONFIG = {
@@ -18,6 +30,7 @@ const CONFIG = {
     manageHref: '/transactions?type=income',
     manageLabel: 'Manage income',
     empty: 'No income records for this FY.',
+    placeholder: 'Search party, category…',
     columns: [
       { key: 'date', label: 'Date', render: (row) => formatDate(row.date) },
       { key: 'categoryName', label: 'Category' },
@@ -40,6 +53,7 @@ const CONFIG = {
     manageHref: '/transactions?type=expense',
     manageLabel: 'Manage expenses',
     empty: 'No expense or labour records for this FY.',
+    placeholder: 'Search party, labour, category…',
     columns: [
       { key: 'date', label: 'Date', render: (row) => formatDate(row.date) },
       {
@@ -62,6 +76,7 @@ const CONFIG = {
     manageHref: '/transactions',
     manageLabel: 'Manage transactions',
     empty: 'No P&L records for this FY.',
+    placeholder: 'Search party, labour, category…',
     columns: [
       { key: 'date', label: 'Date', render: (row) => formatDate(row.date) },
       {
@@ -88,6 +103,7 @@ const CONFIG = {
     manageHref: '/production',
     manageLabel: 'Manage production',
     empty: 'No stock balances for this FY.',
+    placeholder: 'Search category…',
     columns: [
       { key: 'categoryName', label: 'Category' },
       {
@@ -115,6 +131,23 @@ const CONFIG = {
 
 export default function MetricDrilldownModal({ open, kind, rows = [], totalLabel, totalValue, onClose }) {
   const config = CONFIG[kind] || CONFIG.income
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(
+    () =>
+      filterRows(rows, {
+        query: search,
+        fields: SEARCH_FIELDS[kind] || SEARCH_FIELDS.income,
+      }),
+    [rows, search, kind],
+  )
+
+  const {
+    page, setPage, pageSize, setPageSize, pageData, total, totalPages, from, to,
+  } = usePagination(filtered, {
+    initialPageSize: 10,
+    resetKey: `${kind}|${search}|${open}`,
+  })
 
   return (
     <Modal
@@ -144,7 +177,26 @@ export default function MetricDrilldownModal({ open, kind, rows = [], totalLabel
             <span className="ml-2 text-ink-400">· {rows.length} record(s)</span>
           </div>
         )}
-        <Table columns={config.columns} data={rows} emptyMessage={config.empty} />
+        <SearchFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder={config.placeholder || 'Search…'}
+        />
+        <Table
+          columns={config.columns}
+          data={pageData}
+          emptyMessage={rows.length ? 'No records match your search.' : config.empty}
+        />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+          from={from}
+          to={to}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </Modal>
   )
