@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, UserPlus } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import BrandLogo from '@/components/brand/BrandLogo'
 
 export default function SignupForm() {
   const { signup, isAuthenticated, loading, authError, setAuthError } = useAuth()
+  const toast = useToast()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,12 +28,27 @@ export default function SignupForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLocalError('')
-    if (password.length < 6) return setLocalError('Password must be at least 6 characters.')
-    if (password !== confirm) return setLocalError('Passwords do not match.')
+    if (password.length < 6) {
+      const msg = 'Password must be at least 6 characters.'
+      setLocalError(msg)
+      toast.error(msg)
+      return
+    }
+    if (password !== confirm) {
+      const msg = 'Passwords do not match.'
+      setLocalError(msg)
+      toast.error(msg)
+      return
+    }
     setSubmitting(true)
     const result = await signup(email, password)
     setSubmitting(false)
-    if (result.ok) router.replace('/')
+    if (result.ok) {
+      toast.success('Account created successfully')
+      router.replace('/')
+    } else {
+      toast.error(result.message || authError || 'Sign up failed')
+    }
   }
 
   const error = localError || authError

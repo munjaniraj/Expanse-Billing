@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import BrandLogo from '@/components/brand/BrandLogo'
 
 export default function LoginForm() {
   const { login, isAuthenticated, loading, authError, setAuthError } = useAuth()
+  const toast = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -29,7 +31,12 @@ export default function LoginForm() {
     setSubmitting(true)
     const result = await login(email, password)
     setSubmitting(false)
-    if (result.ok) router.replace(searchParams.get('next') || '/')
+    if (result.ok) {
+      toast.success('Signed in successfully')
+      router.replace(searchParams.get('next') || '/')
+    } else {
+      toast.error(result.message || authError || 'Sign in failed')
+    }
   }
 
   return (

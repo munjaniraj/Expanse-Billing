@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import BrandLogo from '@/components/brand/BrandLogo'
 
 export default function ForgotPasswordForm() {
   const { resetPassword, isAuthenticated, loading, authError, setAuthError } = useAuth()
+  const toast = useToast()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -26,7 +28,12 @@ export default function ForgotPasswordForm() {
     setSent(false)
     const result = await resetPassword(email)
     setSubmitting(false)
-    if (result.ok) setSent(true)
+    if (result.ok) {
+      setSent(true)
+      toast.success('Password reset email sent')
+    } else {
+      toast.error(result.message || authError || 'Could not send reset email')
+    }
   }
 
   return (

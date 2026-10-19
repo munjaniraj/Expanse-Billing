@@ -7,8 +7,10 @@ import {
 import { Plus, Pencil, Trash2, Search, Filter, Tags, Loader2 } from 'lucide-react'
 import { db } from '@/services/firebase'
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery'
+import { useToast } from '@/context/ToastContext'
 import Badge from '@/components/common/Badge'
 import Table from '@/components/common/Table'
+import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
 import CategoryFormModal from './CategoryFormModal'
 
 const TYPE_FILTERS = [
@@ -20,6 +22,7 @@ const TYPE_FILTERS = [
 ]
 
 export default function CategoryList() {
+  const toast = useToast()
   const categoriesQuery = useMemo(
     () => query(collection(db, 'categories'), orderBy('createdAt', 'desc')),
     [],
@@ -30,6 +33,8 @@ export default function CategoryList() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const [actionError, setActionError] = useState('')
 
@@ -61,23 +66,38 @@ export default function CategoryList() {
         code: form.code.trim().toUpperCase(),
         status: form.status,
       }
-      if (editing?.id) await updateDoc(doc(db, 'categories', editing.id), payload)
-      else await addDoc(collection(db, 'categories'), { ...payload, createdAt: serverTimestamp() })
+      if (editing?.id) {
+        await updateDoc(doc(db, 'categories', editing.id), payload)
+        toast.success(`Category "${payload.name}" updated`)
+      } else {
+        await addDoc(collection(db, 'categories'), { ...payload, createdAt: serverTimestamp() })
+        toast.success(`Category "${payload.name}" added`)
+      }
       setModalOpen(false)
       setEditing(null)
     } catch (err) {
-      setActionError(err.message || 'Failed to save category.')
+      const msg = err.message || 'Failed to save category.'
+      setActionError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (row) => {
-    if (!window.confirm(`Delete category "${row.name}"?`)) return
+  const handleDeleteConfirm = async () => {
+    if (!deleting?.id) return
+    setDeletingBusy(true)
+    setActionError('')
     try {
-      await deleteDoc(doc(db, 'categories', row.id))
+      await deleteDoc(doc(db, 'categories', deleting.id))
+      toast.success(`Category "${deleting.name}" deleted`)
+      setDeleting(null)
     } catch (err) {
-      setActionError(err.message || 'Failed to delete category.')
+      const msg = err.message || 'Failed to delete category.'
+      setActionError(msg)
+      toast.error(msg)
+    } finally {
+      setDeletingBusy(false)
     }
   }
 
@@ -111,7 +131,7 @@ export default function CategoryList() {
           <button type="button" className="rounded-lg p-2 text-ink-500 hover:bg-teal-50 hover:text-teal-700" onClick={() => { setEditing(row); setModalOpen(true) }}>
             <Pencil className="h-4 w-4" />
           </button>
-          <button type="button" className="rounded-lg p-2 text-ink-500 hover:bg-rose-50 hover:text-rose-600" onClick={() => handleDelete(row)}>
+          <button type="button" className="rounded-lg p-2 text-ink-500 hover:bg-rose-50 hover:text-rose-600" onClick={() => setDeleting(row)} title="Delete">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -192,6 +212,16 @@ export default function CategoryList() {
         onSubmit={handleSave}
         initial={editing}
         saving={saving}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="Delete category?"
+        message="Are you sure you want to delete this record?"
+        detail={deleting ? `Category: ${deleting.name || '—'} (${deleting.type || ''})` : ''}
+        loading={deletingBusy}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => !deletingBusy && setDeleting(null)}
       />
     </div>
   )

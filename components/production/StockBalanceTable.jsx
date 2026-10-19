@@ -1,6 +1,6 @@
 'use client'
 
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, Pencil, Trash2 } from 'lucide-react'
 import { formatINR } from '@/utils/currencyFormatter'
 import Table from '@/components/common/Table'
 
@@ -10,6 +10,8 @@ export default function StockBalanceTable({
   onRowSelect,
   onAdd,
   onReduce,
+  onEdit,
+  onDelete,
 }) {
   const columns = [
     {
@@ -66,6 +68,22 @@ export default function StockBalanceTable({
           >
             <Minus className="h-3.5 w-3.5" />
             Reduce
+          </button>
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-ink-500 hover:bg-teal-50 hover:text-teal-700"
+            onClick={() => onEdit?.(row)}
+            title="Edit stock settings"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-ink-500 hover:bg-rose-50 hover:text-rose-600"
+            onClick={() => onDelete?.(row)}
+            title="Delete stock balance"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       ),

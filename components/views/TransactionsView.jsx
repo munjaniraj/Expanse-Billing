@@ -1,23 +1,29 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   collection,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   query,
   where,
-  orderBy,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 import { db } from '@/services/firebase'
 import { useFinancialYear } from '@/context/FinancialYearContext'
+import { useToast } from '@/context/ToastContext'
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery'
 import { formatINR } from '@/utils/currencyFormatter'
+import { sortByDateDesc } from '@/utils/sortByDate'
 import Badge from '@/components/common/Badge'
 import Table from '@/components/common/Table'
 import Modal from '@/components/common/Modal'
+import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
 
 const emptyForm = {
   date: new Date().toISOString().slice(0, 10),
@@ -35,25 +41,78 @@ const emptyForm = {
   notes: '',
 }
 
+const TYPE_TABS = [
+  { value: 'all', label: 'All' },
+  { value: 'income', label: 'Income' },
+  { value: 'expense', label: 'Expense' },
+]
+
+function toDateInput(value) {
+  const d = value?.toDate?.() || (value ? new Date(value) : null)
+  if (!d || Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10)
+  return d.toISOString().slice(0, 10)
+}
+
+function rowToForm(row) {
+  return {
+    date: toDateInput(row.date),
+    type: row.type || 'income',
+    categoryId: row.categoryId || '',
+    partyName: row.partyName || '',
+    invoiceNumber: row.invoiceNumber || '',
+    quantity: String(row.quantity ?? ''),
+    unit: row.unit || 'Mtr',
+    rate: String(row.rate ?? ''),
+    discount: String(row.discount ?? '0'),
+    gstAmount: String(row.gstAmount ?? '0'),
+    paidReceivedAmount: String(row.paidReceivedAmount ?? ''),
+    paymentMethod: row.paymentMethod || 'Bank Transfer',
+    notes: row.notes || '',
+  }
+}
+
 export default function TransactionsView() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const toast = useToast()
   const { financialYear } = useFinancialYear()
+  // Filter by FY only (no orderBy) so Firestore does not require a composite index.
   const txQuery = useMemo(
-    () =>
-      query(
-        collection(db, 'transactions'),
-        where('financialYear', '==', financialYear),
-        orderBy('date', 'desc'),
-      ),
+    () => query(collection(db, 'transactions'), where('financialYear', '==', financialYear)),
     [financialYear],
   )
   const catsQuery = useMemo(() => collection(db, 'categories'), [])
-  const { data: transactions, loading, error } = useFirestoreQuery(txQuery)
+  const { data: rawTransactions, loading, error } = useFirestoreQuery(txQuery)
+  const transactions = useMemo(() => sortByDateDesc(rawTransactions, 'date'), [rawTransactions])
   const { data: categories } = useFirestoreQuery(catsQuery)
 
+  const [typeFilter, setTypeFilter] = useState('all')
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+
+  useEffect(() => {
+    const t = searchParams.get('type')
+    if (t === 'income' || t === 'expense' || t === 'all') setTypeFilter(t)
+  }, [searchParams])
+
+  const setFilter = (value) => {
+    setTypeFilter(value)
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'all') params.delete('type')
+    else params.set('type', value)
+    const qs = params.toString()
+    router.replace(qs ? `/transactions?${qs}` : '/transactions', { scroll: false })
+  }
+
+  const filtered = useMemo(() => {
+    if (typeFilter === 'all') return transactions
+    return transactions.filter((t) => t.type === typeFilter)
+  }, [transactions, typeFilter])
 
   const filteredCats = categories.filter(
     (c) => c.status === 'active' && (c.type === form.type || c.type === 'production'),
@@ -73,6 +132,31 @@ export default function TransactionsView() {
     return { totalAmount, pendingAmount, paymentStatus }
   }, [form])
 
+  const openCreate = () => {
+    setEditing(null)
+    setForm({
+      ...emptyForm,
+      type: typeFilter === 'expense' ? 'expense' : 'income',
+      date: new Date().toISOString().slice(0, 10),
+    })
+    setFormError('')
+    setOpen(true)
+  }
+
+  const openEdit = (row) => {
+    setEditing(row)
+    setForm(rowToForm(row))
+    setFormError('')
+    setOpen(true)
+  }
+
+  const closeModal = () => {
+    if (saving) return
+    setOpen(false)
+    setEditing(null)
+    setFormError('')
+  }
+
   const handleSave = async (e) => {
     e.preventDefault()
     if (!form.categoryId) {
@@ -83,7 +167,7 @@ export default function TransactionsView() {
     setFormError('')
     try {
       const cat = categories.find((c) => c.id === form.categoryId)
-      await addDoc(collection(db, 'transactions'), {
+      const payload = {
         financialYear,
         date: Timestamp.fromDate(new Date(form.date)),
         type: form.type,
@@ -102,14 +186,42 @@ export default function TransactionsView() {
         paymentStatus: computed.paymentStatus,
         paymentMethod: form.paymentMethod,
         notes: form.notes.trim(),
-        createdAt: serverTimestamp(),
-      })
-      setOpen(false)
+      }
+      if (editing?.id) {
+        await updateDoc(doc(db, 'transactions', editing.id), {
+          ...payload,
+          updatedAt: serverTimestamp(),
+        })
+        toast.success('Transaction updated')
+      } else {
+        await addDoc(collection(db, 'transactions'), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        })
+        toast.success('Transaction added')
+      }
+      closeModal()
       setForm(emptyForm)
     } catch (err) {
-      setFormError(err.message || 'Failed to save transaction.')
+      const msg = err.message || 'Failed to save transaction.'
+      setFormError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleting?.id) return
+    setDeletingBusy(true)
+    try {
+      await deleteDoc(doc(db, 'transactions', deleting.id))
+      toast.success('Transaction deleted')
+      setDeleting(null)
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete transaction.')
+    } finally {
+      setDeletingBusy(false)
     }
   }
 
@@ -146,13 +258,61 @@ export default function TransactionsView() {
       label: 'Status',
       render: (row) => <Badge tone={row.paymentStatus}>{row.paymentStatus}</Badge>,
     },
+    {
+      key: 'actions',
+      label: 'Actions',
+      stopPropagation: true,
+      className: 'text-right',
+      headerClassName: 'text-right',
+      render: (row) => (
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            className="rounded-lg p-2 text-ink-500 hover:bg-teal-50 hover:text-teal-700"
+            onClick={() => openEdit(row)}
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="rounded-lg p-2 text-ink-500 hover:bg-rose-50 hover:text-rose-600"
+            onClick={() => setDeleting(row)}
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
   ]
+
+  const filterLabel =
+    typeFilter === 'income' ? 'income' : typeFilter === 'expense' ? 'expense' : 'transaction'
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-ink-500">Income & expense vouchers for the selected FY.</p>
-        <button type="button" className="btn-primary" onClick={() => setOpen(true)}>
+        <div className="space-y-2">
+          <p className="text-sm text-ink-500">Income & expense vouchers for the selected FY.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TYPE_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setFilter(tab.value)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  typeFilter === tab.value
+                    ? 'bg-teal-700 text-white'
+                    : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button type="button" className="btn-primary" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Add Transaction
         </button>
@@ -160,7 +320,10 @@ export default function TransactionsView() {
 
       {error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Could not load transactions. Configure Firebase / create the suggested index if asked.
+          Could not load transactions.{' '}
+          {error.message?.includes('index')
+            ? 'A Firestore index is still required — open the link in the browser console to create it.'
+            : error.message || 'Check Firebase configuration.'}
         </div>
       )}
 
@@ -170,22 +333,26 @@ export default function TransactionsView() {
         </div>
       ) : (
         <div className="card p-4 sm:p-5">
-          <Table columns={columns} data={transactions} emptyMessage="No transactions yet." />
+          <Table
+            columns={columns}
+            data={filtered}
+            emptyMessage={`No ${filterLabel} records yet.`}
+          />
         </div>
       )}
 
       <Modal
         open={open}
-        onClose={() => !saving && setOpen(false)}
-        title="New Transaction"
+        onClose={closeModal}
+        title={editing ? 'Edit Transaction' : 'New Transaction'}
         size="lg"
         footer={
           <>
-            <button type="button" className="btn-secondary" onClick={() => setOpen(false)} disabled={saving}>
+            <button type="button" className="btn-secondary" onClick={closeModal} disabled={saving}>
               Cancel
             </button>
             <button type="submit" form="tx-form" className="btn-primary" disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? 'Update' : 'Save'}
             </button>
           </>
         }
@@ -329,6 +496,20 @@ export default function TransactionsView() {
           </Field>
         </form>
       </Modal>
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="Delete transaction?"
+        message="Are you sure you want to delete this record?"
+        detail={
+          deleting
+            ? `${deleting.type || 'Transaction'} · ${deleting.partyName || '—'} · ${deleting.categoryName || ''}`
+            : ''
+        }
+        loading={deletingBusy}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => !deletingBusy && setDeleting(null)}
+      />
     </div>
   )
 }

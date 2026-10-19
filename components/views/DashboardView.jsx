@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   collection,
   query,
@@ -22,9 +22,11 @@ import MetricCard from '@/components/common/MetricCard'
 import CategoryBreakdownCard from '@/components/dashboard/CategoryBreakdownCard'
 import LabourSummaryTable from '@/components/dashboard/LabourSummaryTable'
 import ReceivablesPayablesSummary from '@/components/dashboard/ReceivablesPayablesSummary'
+import MetricDrilldownModal from '@/components/dashboard/MetricDrilldownModal'
 
 export default function DashboardView() {
   const { financialYear, label } = useFinancialYear()
+  const [drilldown, setDrilldown] = useState(null)
 
   const txQuery = useMemo(
     () => query(collection(db, 'transactions'), where('financialYear', '==', financialYear)),
@@ -63,8 +65,72 @@ export default function DashboardView() {
       labourCost,
       profit: income - expense - labourCost,
       netStockValue,
+      totalExpense: expense + labourCost,
     }
   }, [transactions, labour, stock])
+
+  const incomeRows = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.type === 'income')
+        .slice()
+        .sort(sortByDateDesc),
+    [transactions],
+  )
+
+  const expenseRows = useMemo(() => {
+    const fromTx = transactions
+      .filter((t) => t.type === 'expense')
+      .map((t) => ({
+        id: `tx-${t.id}`,
+        date: t.date,
+        source: 'Expense',
+        name: t.partyName || '—',
+        categoryName: t.categoryName || '—',
+        totalAmount: t.totalAmount,
+      }))
+    const fromLabour = labour.map((l) => ({
+      id: `lab-${l.id}`,
+      date: l.date,
+      source: 'Labour',
+      name: l.labourName || '—',
+      categoryName: l.department || '—',
+      totalAmount: l.netPayment,
+    }))
+    return [...fromTx, ...fromLabour].sort(sortByDateDesc)
+  }, [transactions, labour])
+
+  const profitRows = useMemo(() => {
+    const income = transactions
+      .filter((t) => t.type === 'income')
+      .map((t) => ({
+        id: `inc-${t.id}`,
+        date: t.date,
+        type: 'income',
+        name: t.partyName || '—',
+        categoryName: t.categoryName || '—',
+        signedAmount: Number(t.totalAmount) || 0,
+      }))
+    const expense = transactions
+      .filter((t) => t.type === 'expense')
+      .map((t) => ({
+        id: `exp-${t.id}`,
+        date: t.date,
+        type: 'expense',
+        name: t.partyName || '—',
+        categoryName: t.categoryName || '—',
+        signedAmount: -(Number(t.totalAmount) || 0),
+      }))
+    const labourRows = labour.map((l) => ({
+      id: `lab-${l.id}`,
+      date: l.date,
+      type: 'labour',
+      name: l.labourName || '—',
+      categoryName: l.department || '—',
+      signedAmount: -(Number(l.netPayment) || 0),
+    }))
+    return [...income, ...expense, ...labourRows].sort(sortByDateDesc)
+  }, [transactions, labour])
 
   const incomeByCat = useMemo(
     () => aggregateByCategory(transactions.filter((t) => t.type === 'income'), 'totalAmount'),
@@ -119,6 +185,44 @@ export default function DashboardView() {
     [transactions],
   )
 
+  const drilldownPayload = useMemo(() => {
+    if (!drilldown) return null
+    if (drilldown === 'income') {
+      return {
+        kind: 'income',
+        rows: incomeRows,
+        totalLabel: 'Total Income',
+        totalValue: metrics.income,
+      }
+    }
+    if (drilldown === 'expense') {
+      return {
+        kind: 'expense',
+        rows: expenseRows,
+        totalLabel: 'Total Expense (incl. labour)',
+        totalValue: metrics.totalExpense,
+      }
+    }
+    if (drilldown === 'profit') {
+      return {
+        kind: 'profit',
+        rows: profitRows,
+        totalLabel: 'Net Profit / Loss',
+        totalValue: metrics.profit,
+      }
+    }
+    return {
+      kind: 'stock',
+      rows: stock.slice().sort((a, b) => {
+        const va = (Number(a.netStock) || 0) * (Number(a.unitCost) || 0)
+        const vb = (Number(b.netStock) || 0) * (Number(b.unitCost) || 0)
+        return vb - va
+      }),
+      totalLabel: 'Stock Value',
+      totalValue: metrics.netStockValue,
+    }
+  }, [drilldown, incomeRows, expenseRows, profitRows, stock, metrics])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-24 text-ink-500">
@@ -144,13 +248,17 @@ export default function DashboardView() {
           subtitle={label}
           icon={TrendingUp}
           tone="emerald"
+          onClick={() => setDrilldown('income')}
+          hint="Click to view all income"
         />
         <MetricCard
           title="Total Expense"
-          value={formatINRCompact(metrics.expense + metrics.labourCost)}
+          value={formatINRCompact(metrics.totalExpense)}
           subtitle={`Incl. labour ${formatINRCompact(metrics.labourCost)}`}
           icon={TrendingDown}
           tone="rose"
+          onClick={() => setDrilldown('expense')}
+          hint="Click to view all expenses"
         />
         <MetricCard
           title="Net Profit / Loss"
@@ -158,6 +266,8 @@ export default function DashboardView() {
           subtitle={metrics.profit >= 0 ? 'In the green' : 'Needs attention'}
           icon={Wallet}
           tone={metrics.profit >= 0 ? 'teal' : 'rose'}
+          onClick={() => setDrilldown('profit')}
+          hint="Click to view P&L breakdown"
         />
         <MetricCard
           title="Stock Value"
@@ -165,6 +275,8 @@ export default function DashboardView() {
           subtitle="At unit cost"
           icon={Factory}
           tone="ink"
+          onClick={() => setDrilldown('stock')}
+          hint="Click to view stock balances"
         />
       </div>
 
@@ -182,8 +294,23 @@ export default function DashboardView() {
         All figures filtered to <strong className="mx-1 text-ink-800">{label}</strong>
         using Indian Rupee formatting (e.g. {formatINR(125000)}).
       </div>
+
+      <MetricDrilldownModal
+        open={Boolean(drilldownPayload)}
+        kind={drilldownPayload?.kind}
+        rows={drilldownPayload?.rows || []}
+        totalLabel={drilldownPayload?.totalLabel}
+        totalValue={drilldownPayload?.totalValue}
+        onClose={() => setDrilldown(null)}
+      />
     </div>
   )
+}
+
+function sortByDateDesc(a, b) {
+  const da = a.date?.toDate?.() || (a.date ? new Date(a.date) : new Date(0))
+  const db = b.date?.toDate?.() || (b.date ? new Date(b.date) : new Date(0))
+  return db - da
 }
 
 function aggregateByCategory(rows, field) {

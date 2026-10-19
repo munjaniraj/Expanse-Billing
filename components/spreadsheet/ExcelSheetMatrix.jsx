@@ -5,6 +5,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { Download, Loader2, Printer, Calculator } from 'lucide-react'
 import { db } from '@/services/firebase'
 import { useFinancialYear } from '@/context/FinancialYearContext'
+import { useToast } from '@/context/ToastContext'
 import { FY_MONTHS } from '@/utils/financialYearHelper'
 import { formatINR, parseAmount } from '@/utils/currencyFormatter'
 import { downloadCSV } from '@/utils/csvExporter'
@@ -31,6 +32,7 @@ function cloneRows(source) {
 
 export default function ExcelSheetMatrix() {
   const { financialYear, label } = useFinancialYear()
+  const toast = useToast()
   const [companyName, setCompanyName] = useState('RKT FABRICS MANUFACTURED')
   const [totalAavak, setTotalAavak] = useState(0)
   const [rows, setRows] = useState(buildEmptyRows)
@@ -66,11 +68,13 @@ export default function ExcelSheetMatrix() {
       setSavedAt(new Date())
     } catch (err) {
       console.error(err)
-      setSaveError(err.message || 'Failed to save. Check Firestore rules / login.')
+      const msg = err.message || 'Failed to save. Check Firestore rules / login.'
+      setSaveError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
-  }, [financialYear])
+  }, [financialYear, toast])
 
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true
@@ -202,6 +206,7 @@ export default function ExcelSheetMatrix() {
     body.push(['WITH EMI AND ALL', Number(summary.withEmiAndAll.toFixed(2))])
 
     downloadCSV(`Costing_${financialYear}.csv`, [header, ...body])
+    toast.success('Costing sheet exported')
   }
 
   if (loading) {

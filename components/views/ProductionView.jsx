@@ -5,45 +5,53 @@ import {
   collection,
   query,
   where,
-  orderBy,
 } from 'firebase/firestore'
 import { Minus, Plus, Loader2 } from 'lucide-react'
 import { db } from '@/services/firebase'
 import { useFinancialYear } from '@/context/FinancialYearContext'
+import { useToast } from '@/context/ToastContext'
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery'
 import { useStockOperations } from '@/hooks/useStockOperations'
+import { sortByDateDesc } from '@/utils/sortByDate'
 import StockBalanceTable from '@/components/production/StockBalanceTable'
 import StockMovementModal from '@/components/production/StockMovementModal'
+import StockEditModal from '@/components/production/StockEditModal'
 import MovementHistoryLog from '@/components/production/MovementHistoryLog'
+import ConfirmDeleteModal from '@/components/common/ConfirmDeleteModal'
 
 export default function ProductionView() {
+  const toast = useToast()
   const { financialYear } = useFinancialYear()
-  const { applyStockMovement } = useStockOperations()
+  const { applyStockMovement, updateStockSettings, deleteStockBalance } = useStockOperations()
 
   const catsQuery = useMemo(
-    () => query(collection(db, 'categories'), where('type', '==', 'production'), where('status', '==', 'active')),
+    () => query(collection(db, 'categories'), where('type', '==', 'production')),
     [],
   )
   const stockQuery = useMemo(
     () => query(collection(db, 'production_stock'), where('financialYear', '==', financialYear)),
     [financialYear],
   )
+  // Filter by FY only (no orderBy) so Firestore does not require a composite index.
   const movementsQuery = useMemo(
-    () =>
-      query(
-        collection(db, 'stock_movements'),
-        where('financialYear', '==', financialYear),
-        orderBy('timestamp', 'desc'),
-      ),
+    () => query(collection(db, 'stock_movements'), where('financialYear', '==', financialYear)),
     [financialYear],
   )
 
-  const { data: categories, loading: catLoading } = useFirestoreQuery(catsQuery)
+  const { data: rawCategories, loading: catLoading } = useFirestoreQuery(catsQuery)
+  const categories = useMemo(
+    () => rawCategories.filter((c) => c.status === 'active'),
+    [rawCategories],
+  )
   const { data: stock, loading: stockLoading, error } = useFirestoreQuery(stockQuery)
-  const { data: movements, loading: movLoading } = useFirestoreQuery(movementsQuery)
+  const { data: rawMovements, loading: movLoading } = useFirestoreQuery(movementsQuery)
+  const movements = useMemo(() => sortByDateDesc(rawMovements, 'timestamp'), [rawMovements])
 
   const [modalMode, setModalMode] = useState(null)
   const [selectedStock, setSelectedStock] = useState(null)
+  const [editStock, setEditStock] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const [actionError, setActionError] = useState('')
 
@@ -77,13 +85,55 @@ export default function ProductionView() {
         unitCost: selectedStock?.unitCost || 0,
         sellingRate: selectedStock?.sellingRate || 0,
       })
+      toast.success(
+        form.actionType === 'ADD'
+          ? `Stock added for ${form.categoryName || 'category'}`
+          : `Stock reduced for ${form.categoryName || 'category'}`,
+      )
       setModalMode(null)
       setSelectedStock(null)
     } catch (err) {
       console.error(err)
-      setActionError(err.message || 'Stock update failed.')
+      const msg = err.message || 'Stock update failed.'
+      setActionError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleEditSave = async (payload) => {
+    if (!editStock?.id) return
+    setSaving(true)
+    setActionError('')
+    try {
+      await updateStockSettings(editStock.id, payload)
+      toast.success(`Stock settings updated for ${editStock.categoryName || 'category'}`)
+      setEditStock(null)
+    } catch (err) {
+      const msg = err.message || 'Failed to update stock settings.'
+      setActionError(msg)
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleting?.id) return
+    setDeletingBusy(true)
+    setActionError('')
+    try {
+      await deleteStockBalance(deleting.id)
+      toast.success(`Stock balance deleted for ${deleting.categoryName}`)
+      if (selectedStock?.id === deleting.id) setSelectedStock(null)
+      setDeleting(null)
+    } catch (err) {
+      const msg = err.message || 'Failed to delete stock balance.'
+      setActionError(msg)
+      toast.error(msg)
+    } finally {
+      setDeletingBusy(false)
     }
   }
 
@@ -93,7 +143,7 @@ export default function ProductionView() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-ink-500">
-          Click a stock row to reduce it (details auto-filled), or use Add / Reduce actions.
+          Add / reduce stock, edit unit cost & opening, or delete a balance row.
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -143,6 +193,8 @@ export default function ProductionView() {
             onRowSelect={setSelectedStock}
             onAdd={(row) => openModal('ADD', row)}
             onReduce={(row) => openModal('REDUCE', row)}
+            onEdit={(row) => setEditStock(row)}
+            onDelete={(row) => setDeleting(row)}
           />
           <MovementHistoryLog movements={movements} />
         </>
@@ -156,6 +208,28 @@ export default function ProductionView() {
         saving={saving}
         onClose={closeModal}
         onSubmit={handleSubmit}
+      />
+
+      <StockEditModal
+        open={Boolean(editStock)}
+        stock={editStock}
+        saving={saving}
+        onClose={() => !saving && setEditStock(null)}
+        onSubmit={handleEditSave}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="Delete stock balance?"
+        message="Are you sure you want to delete this record?"
+        detail={
+          deleting
+            ? `${deleting.categoryName || 'Stock'} · Movement history will be kept.`
+            : ''
+        }
+        loading={deletingBusy}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => !deletingBusy && setDeleting(null)}
       />
     </div>
   )

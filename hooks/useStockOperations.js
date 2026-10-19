@@ -3,11 +3,30 @@
 import {
   doc,
   getDoc,
+  deleteDoc,
+  updateDoc,
   serverTimestamp,
   runTransaction,
   collection,
 } from 'firebase/firestore'
 import { db } from '@/services/firebase'
+
+export async function updateStockSettings(stockId, { openingStock, unitCost, sellingRate, unit, netStock }) {
+  if (!stockId) throw new Error('Missing stock id.')
+  await updateDoc(doc(db, 'production_stock', stockId), {
+    openingStock: Number(openingStock) || 0,
+    unitCost: Number(unitCost) || 0,
+    sellingRate: Number(sellingRate) || 0,
+    unit: unit || 'Mtr',
+    netStock: Number(netStock) || 0,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function deleteStockBalance(stockId) {
+  if (!stockId) throw new Error('Missing stock id.')
+  await deleteDoc(doc(db, 'production_stock', stockId))
+}
 
 export async function applyStockMovement({
   financialYear,
@@ -106,5 +125,5 @@ export async function applyStockMovement({
 }
 
 export function useStockOperations() {
-  return { applyStockMovement }
+  return { applyStockMovement, updateStockSettings, deleteStockBalance }
 }

@@ -3,10 +3,17 @@
 import { LogOut, Menu, CalendarRange } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useFinancialYear } from '@/context/FinancialYearContext'
+import { useToast } from '@/context/ToastContext'
 
 export default function Topbar({ onMenuClick, title, subtitle }) {
   const { user, logout } = useAuth()
+  const toast = useToast()
   const { financialYear, setFinancialYear, options } = useFinancialYear()
+
+  const handleLogout = async () => {
+    await logout()
+    toast.success('Signed out successfully')
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-ink-200/70 bg-white/80 backdrop-blur-md no-print">
@@ -35,7 +42,10 @@ export default function Topbar({ onMenuClick, title, subtitle }) {
             <select
               id="fy-select"
               value={financialYear}
-              onChange={(e) => setFinancialYear(e.target.value)}
+              onChange={(e) => {
+                setFinancialYear(e.target.value)
+                toast.info(`Financial year set to FY ${e.target.value}`)
+              }}
               className="min-w-0 flex-1 bg-transparent text-base font-semibold text-ink-800"
             >
               {options.map((fy) => (
@@ -53,7 +63,7 @@ export default function Topbar({ onMenuClick, title, subtitle }) {
             <p className="max-w-[180px] truncate text-base font-medium text-ink-800">{user?.email}</p>
           </div>
 
-          <button type="button" className="btn-secondary" onClick={logout} title="Sign out">
+          <button type="button" className="btn-secondary" onClick={handleLogout} title="Sign out">
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Logout</span>
           </button>
